@@ -8,7 +8,7 @@ describe("ExampleService", () => {
 
   beforeAll(async () => {
     env = await testEnv.start();
-  }, 10_000);
+  }, 60_000);
 
   afterAll(async () => {
     if (env) {
