@@ -1,11 +1,9 @@
-import * as restate from "@restatedev/restate-sdk";
 import { restateTestEnvironment, StartedRestateTestEnv } from "./restate_env";
 import { myService } from "../src/myservice";
 
 describe("ExampleService", () => {
-  const testEnv = restateTestEnvironment(
-    restate.endpoint().bindRouter("myservice", myService)
-  );
+  const testEnv = restateTestEnvironment({ routers: { myservice: myService } });
+
   let env: StartedRestateTestEnv | undefined;
 
   beforeAll(async () => {
@@ -19,15 +17,19 @@ describe("ExampleService", () => {
   });
 
   it("Calling hello should return a nice greeting", async () => {
-    const greeting = await env?.call("myservice", "hello", { name: "bob" });
+    type Hello = typeof myService.hello;
+
+    const greeting = await env?.call<Hello>("myservice", "hello", {
+      name: "bob",
+    });
 
     expect(greeting).toBe("Hello bob!");
   });
 
   it("Find the first product in the cart", async () => {
-    type handler = (typeof myService)["firstProductInCart"];
+    type FirstProductInCart = typeof myService.firstProductInCart;
 
-    const x = await env?.call<unknown, ReturnType<handler>>(
+    const x = await env?.call<FirstProductInCart>(
       "myservice",
       "firstProductInCart",
       { cartId: "1" }
@@ -39,12 +41,11 @@ describe("ExampleService", () => {
   });
 
   it("Demo the sleepy handler", async () => {
-    type handler = (typeof myService)["sleepyHandler"];
+    type SleepyHandler = typeof myService.sleepyHandler;
 
-    await env?.call<unknown, ReturnType<handler>>(
-      "myservice",
-      "sleepyHandler",
-      { duration: 10, times: 3 }
-    );
+    await env?.call<SleepyHandler>("myservice", "sleepyHandler", {
+      duration: 10,
+      times: 3,
+    });
   });
 });
