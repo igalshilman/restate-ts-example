@@ -25,14 +25,29 @@ export type FirstArgument<T extends (...args: any[]) => any> = T extends (
   ? U
   : never;
 
+export type SecondArgument<T extends (...args: any[]) => any> = T extends (
+  arg1: string,
+  arg2: infer U,
+  ...args: any[]
+) => any
+  ? U
+  : never;
+
 export interface StartedRestateTestEnv {
   baseUrl: string;
   adminAPIBaseUrl: string;
   call<H extends (input: any) => Promise<any>>(
     service: string,
-    handler: String,
+    handler: string,
     request: FirstArgument<H>
   ): Promise<ReturnType<H>>;
+  keyedCall<H extends (key: string, input: any) => Promise<any>>(
+    service: string,
+    handler: string,
+    key: string,
+    request: SecondArgument<H>
+  ): Promise<ReturnType<H>>;
+
   stop(): Promise<void>;
 }
 
@@ -44,7 +59,7 @@ export const restateTestEnvironment = (routers: RouterConf): RestateTestEnv => {
         endpoint.bindRouter(key, router);
       }
       for (const [key, router] of Object.entries(routers.keyedRouters ?? {})) {
-        endpoint.bindRouter(key, router);
+        endpoint.bindKeyedRouter(key, router);
       }
       let endpointServer = await serveEndpoint(endpoint);
       let restateServer = await serveRuntime(
@@ -63,23 +78,23 @@ export const restateTestEnvironment = (routers: RouterConf): RestateTestEnv => {
 
         call: async <H extends (input: any) => Promise<any>>(
           service: string,
-          handler: String,
+          handler: string,
           request: FirstArgument<H>
         ): Promise<ReturnType<H>> => {
-          
           const url = `${baseUrl}/${service}/${handler}`;
           const requestBody = { request };
+          return doCall<ReturnType<H>>(url, requestBody);
+        },
 
-          const res = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestBody),
-          });
-
-          const js = (await res.json()) as { response: ReturnType<H> };
-          return js.response;
+        keyedCall: async <H extends (key: string, input: any) => Promise<any>>(
+          service: string,
+          handler: string,
+          key: string,
+          request: SecondArgument<H>
+        ): Promise<ReturnType<H>> => {
+          const url = `${baseUrl}/${service}/${handler}`;
+          const requestBody = { key, request };
+          return doCall<ReturnType<H>>(url, requestBody);
         },
 
         stop: async () => {
@@ -90,6 +105,18 @@ export const restateTestEnvironment = (routers: RouterConf): RestateTestEnv => {
     },
   };
 };
+
+async function doCall<O>(url: string, request: any): Promise<O> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+  const js = (await res.json()) as { response: O };
+  return js.response;
+}
 
 async function serveEndpoint(
   endpoint: restate.RestateEndpoint
